@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Dibujo</title>
+    <link rel="icon" href="favicon.ico" type="image/vnd.microsoft.icon" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+        }
+        canvas {
+            display: block;
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .tool-btn {
+            @apply w-12 h-12 flex items-center justify-center rounded-lg cursor-pointer transition-colors duration-200;
+        }
+        .tool-btn.active {
+            @apply bg-blue-100 text-blue-600;
+        }
+        .tool-btn:hover:not(:disabled) {
+            @apply bg-gray-200;
+        }
+        .tool-btn:disabled {
+            @apply opacity-60 cursor-not-allowed grayscale;
+        }
+        #library-panel {
+            scrollbar-width: thin;
+            scrollbar-color: #a0aec0 #e2e8f0;
+        }
+        #text-editor {
+            position: absolute;
+            display: none; /* Hidden by default */
+            border: 1px dashed #007aff;
+            outline: none;
+            resize: none;
+            background-color: transparent;
+            font-family: 'Patrick Hand', cursive;
+            font-size: 20px;
+            line-height: 1.2;
+            padding: 0;
+            margin: 0;
+            overflow: hidden; /* Hide scrollbars */
+        }
+    </style>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+
+    <div id="main-container" class="relative w-screen h-screen flex">
+        <!-- Toolbar -->
+        <div id="toolbar" class="absolute top-4 left-4 z-10 bg-white p-2 rounded-lg shadow-lg flex flex-col items-center space-y-2">
+            <button class="tool-btn active" data-tool="select" title="Seleccionar y Mover">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path></svg>
+            </button>
+            <button class="tool-btn" data-tool="rectangle" title="Rectángulo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+            </button>
+            <button class="tool-btn" data-tool="ellipse" title="Elipse">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
+            </button>
+            <button class="tool-btn" data-tool="line" title="Línea">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+             <button class="tool-btn" data-tool="arrow" title="Flecha">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </button>
+             <button class="tool-btn" data-tool="pencil" title="Dibujo a mano alzada">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+            </button>
+            <button class="tool-btn" data-tool="text" title="Texto">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+            </button>
+            <button id="library-toggle" class="tool-btn" title="Biblioteca de iconos">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+            </button>
+            
+            <div class="border-t w-full my-2"></div>
+
+            <button id="undo-btn" class="tool-btn" title="Deshacer (Ctrl+Z)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l-3 2.7"/></svg>
+            </button>
+            <button id="redo-btn" class="tool-btn" title="Rehacer (Ctrl+Y)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3l3 2.7"/></svg>
+            </button>
+
+            <div class="border-t w-full my-2"></div>
+            
+             <button id="export-btn" class="tool-btn" title="Exportar a PNG">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            </button>
+             <button id="clear-canvas" class="tool-btn" title="Eliminar todo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </button>
+        </div>
+
+        <!-- Library Panel -->
+        <div id="library-panel" class="absolute top-4 left-20 z-10 bg-white p-4 rounded-lg shadow-lg w-64 h-[calc(100vh-2rem)] overflow-y-auto hidden">
+            <h3 class="text-lg font-bold mb-4">Biblioteca</h3>
+            <div id="library-content" class="grid grid-cols-2 gap-2">
+                <!-- Library items will be injected here -->
+            </div>
+        </div>
+        
+        <!-- Properties Panel -->
+        <div id="properties-panel" class="absolute top-4 right-4 z-10 bg-white p-3 rounded-lg shadow-lg w-56 hidden">
+            <h3 class="text-sm font-bold mb-2">Propiedades</h3>
+            <div class="space-y-2">
+                <div>
+                    <label for="stroke-color" class="text-xs text-gray-600 block mb-1">Color de trazo</label>
+                    <input type="color" id="stroke-color" class="w-full h-8 p-0 border-none rounded-md cursor-pointer">
+                </div>
+                <div>
+                    <label for="fill-color" class="text-xs text-gray-600 block mb-1">Color de relleno</label>
+                    <input type="color" id="fill-color" class="w-full h-8 p-0 border-none rounded-md cursor-pointer">
+                </div>
+            </div>
+        </div>
+
+        <!-- Main drawing area -->
+        <canvas id="canvas" class="w-full h-full"></canvas>
+        <!-- Text editor element, initially hidden -->
+        <textarea id="text-editor"></textarea>
+    </div>
+
+    <!-- Embedded Library Data -->
+    <script id="library-data" type="application/json">
+    {
+      "type": "drawlib",
+      "version": 1,
+      "library": [
+        [
+          { "id": "laptop_base", "type": "rectangle", "x": 0, "y": 70, "width": 140, "height": 10, "strokeColor": "#000000", "backgroundColor": "#a0a0a0", "fillStyle": "solid", "strokeWidth": 2, "roughness": 0 },
+          { "id": "laptop_screen", "type": "rectangle", "x": 10, "y": 0, "width": 120, "height": 70, "strokeColor": "#000000", "backgroundColor": "#d0d0d0", "fillStyle": "solid", "strokeWidth": 2, "roughness": 0 }
+        ],
+        [
+          { "id": "pc_tower", "type": "rectangle", "x": 0, "y": 10, "width": 40, "height": 75, "strokeColor": "#000000", "backgroundColor": "#c0c0c0", "fillStyle": "solid", "strokeWidth": 2, "roughness": 0 },
+          { "id": "pc_mon_screen", "type": "rectangle", "x": 50, "y": 0, "width": 100, "height": 70, "strokeColor": "#000000", "backgroundColor": "#d0d0d0", "fillStyle": "solid", "strokeWidth": 2, "roughness": 0 },
+          { "id": "pc_mon_stand", "type": "rectangle", "x": 75, "y": 70, "width": 50, "height": 15, "strokeColor": "#000000", "backgroundColor": "#a0a0a0", "fillStyle": "solid", "strokeWidth": 2, "roughness": 0 }
+        ],
+        [
+            {"id": "home_base", "type": "rectangle", "x": 10, "y": 40, "width": 80, "height": 50, "strokeColor": "#000000", "backgroundColor": "#e0e0e0", "fillStyle": "solid", "strokeWidth": 2, "roughness": 1},
+            {"id": "home_roof_line1", "type": "line", "x": 0, "y": 40, "width": 50, "height": -40, "strokeColor": "#000000", "backgroundColor": "transparent", "strokeWidth": 2, "points": [[0,0], [50, -40]]},
+            {"id": "home_roof_line2", "type": "line", "x": 50, "y": 0, "width": 50, "height": 40, "strokeColor": "#000000", "backgroundColor": "transparent", "strokeWidth": 2, "points": [[0,0], [50, 40]]}
+        ],
+        [
+            {"id": "save_disk", "type": "rectangle", "x": 0, "y": 0, "width": 100, "height": 100, "strokeColor": "#000000", "backgroundColor": "#a0a0a0", "fillStyle": "solid", "strokeWidth": 2, "roughness": 1},
+            {"id": "save_slider", "type": "rectangle", "x": 10, "y": 0, "width": 80, "height": 45, "strokeColor": "#000000", "backgroundColor": "#c0c0c0", "fillStyle": "solid", "strokeWidth": 2, "roughness": 0},
+            {"id": "save_label", "type": "rectangle", "x": 20, "y": 55, "width": 60, "height": 35, "strokeColor": "#000000", "backgroundColor": "#e0e0e0", "fillStyle": "solid", "strokeWidth": 2, "roughness": 0}
+        ],
+        [
+            {"id": "folder_back", "type": "rectangle", "x": 0, "y": 10, "width": 120, "height": 80, "strokeColor": "#000000", "backgroundColor": "#fcc419", "fillStyle": "solid", "strokeWidth": 2, "roughness": 1},
+            {"id": "folder_tab", "type": "rectangle", "x": 10, "y": 0, "width": 40, "height": 20, "strokeColor": "#000000", "backgroundColor": "#fcc419", "fillStyle": "solid", "strokeWidth": 2, "roughness": 1},
+            {"id": "folder_front", "type": "rectangle", "x": 0, "y": 20, "width": 120, "height": 70, "strokeColor": "#000000", "backgroundColor": "#ffd43b", "fillStyle": "solid", "strokeWidth": 2, "roughness": 1}
+        ],
+        [
+            {"id": "env_body", "type": "rectangle", "x": 0, "y": 0, "width": 120, "height": 80, "strokeColor": "#000000", "backgroundColor": "#e9ecef", "fillStyle": "solid", "strokeWidth": 2, "roughness": 1},
+            {"id": "env_flap_top_left", "type": "line", "x": 0, "y": 0, "width": 60, "height": 50, "strokeColor": "#000000", "strokeWidth": 2, "points": [[0,0], [60,50]]},
+            {"id": "env_flap_top_right", "type": "line", "x": 60, "y": 0, "width": 60, "height": 50, "strokeColor": "#000000", "strokeWidth": 2, "points": [[0,50], [60,0]]}
+        ]
+      ]
+    }
+    </script>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const mainContainer = document.getElementById('main-container');
+        const libraryPanel = document.getElementById('library-panel');
+        const libraryToggleBtn = document.getElementById('library-toggle');
+        const propertiesPanel = document.getElementById('properties-panel');
+        const strokeColorPicker = document.getElementById('stroke-color');
+        const fillColorPicker = document.getElementById('fill-color');
+        const textEditor = document.getElementById('text-editor');
+        const undoBtn = document.getElementById('undo-btn');
+        const redoBtn = document.getElementById('redo-btn');
+        
+        const ghostCanvas = document.createElement('canvas');
+        const ghostCtx = ghostCanvas.getContext('2d');
+
+        let elements = [];
+        let currentTool = 'select';
+        let isDrawing = false;
+        let isMoving = false;
+        let isResizing = false;
+        let resizeHandle = null;
+        let isSelecting = false;
+        let startX, startY;
+        let selectedElements = [];
+        let selectionBox = null;
+        let currentElement = null;
+        let libraryIcons = [];
+        let isEditingText = false;
+
+        let history = [];
+        let redoStack = [];
+        let clipboard = [];
+        let lastPastePosition = { x: 0, y: 0 };
+
+        const getMousePos = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        };
+
+        const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
+        
+        // --- HISTORY MANAGEMENT ---
+        const saveState = () => {
+            redoStack = []; // Clear redo stack on new action
+            history.push(JSON.parse(JSON.stringify(elements))); // Deep copy
+            if (history.length > 50) { // Limit history size
+                history.shift();
+            }
+            updateToolbarState();
+        };
+
+        const undo = () => {
+            if (history.length <= 1) return; // Can't undo initial empty state
+            redoStack.push(history.pop());
+            elements = JSON.parse(JSON.stringify(history[history.length - 1]));
+            selectedElements = [];
+            updatePropertiesPanel();
+            redrawAllElements();
+            updateToolbarState();
+        };
+
+        const redo = () => {
+            if (redoStack.length === 0) return;
+            const nextState = redoStack.pop();
+            history.push(nextState);
+            elements = JSON.parse(JSON.stringify(nextState));
+            selectedElements = [];
+            updatePropertiesPanel();
+            redrawAllElements();
+            updateToolbarState();
+        };
+
+        const deleteSelectedElements = () => {
+            if (selectedElements.length === 0) return;
+            elements = elements.filter(el => !selectedElements.find(sel => sel.id === el.id));
+            selectedElements = [];
+            updatePropertiesPanel();
+            redrawAllElements();
+            saveState();
+        };
+
+        // --- DRAWING LOGIC ---
+        function drawElement(context, element) {
+            if (!element) return;
+            context.save();
+            context.strokeStyle = element.strokeColor || '#000000';
+            context.fillStyle = element.backgroundColor || 'transparent';
+            context.lineWidth = element.strokeWidth || 2;
+            
+            if (element.fillStyle === 'solid') {
+                context.fillStyle = element.backgroundColor || 'transparent';
+            } else if (element.fillStyle === 'hachure') {
+                context.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            }
+
+            switch (element.type) {
+                case 'rectangle':
+                case 'diamond':
+                    context.beginPath();
+                    if (element.type === 'diamond') {
+                        context.moveTo(element.x + element.width / 2, element.y);
+                        context.lineTo(element.x + element.width, element.y + element.height / 2);
+                        context.lineTo(element.x + element.width / 2, element.y + element.height);
+                        context.lineTo(element.x, element.y + element.height / 2);
+                        context.closePath();
+                    } else {
+                        context.rect(element.x, element.y, element.width, element.height);
+                    }
+                    if (element.backgroundColor !== 'transparent') context.fill();
+                    context.stroke();
+                    break;
+                case 'ellipse':
+                    context.beginPath();
+                    const radiusX = Math.abs(element.width / 2);
+                    const radiusY = Math.abs(element.height / 2);
+                    context.ellipse(element.x + element.width / 2, element.y + element.height / 2, radiusX, radiusY, 0, 0, 2 * Math.PI);
+                    if (element.backgroundColor !== 'transparent') context.fill();
+                    context.stroke();
+                    break;
+                case 'line':
+                case 'arrow':
+                case 'pencil':
+                    context.beginPath();
+                    context.lineCap = 'round';
+                    context.lineJoin = 'round';
+                    const points = element.points || [];
+                    if (points.length > 0) {
+                        context.moveTo(element.x + points[0][0], element.y + points[0][1]);
+                        for (let i = 1; i < points.length; i++) {
+                            context.lineTo(element.x + points[i][0], element.y + points[i][1]);
+                        }
+                    }
+                    context.stroke();
+                    if (element.type === 'arrow' && points.length >= 2) {
+                        const lastPoint = points[points.length - 1];
+                        const secondLastPoint = points[points.length - 2];
+                        const angle = Math.atan2(lastPoint[1] - secondLastPoint[1], lastPoint[0] - secondLastPoint[0]);
+                        context.save();
+                        context.translate(element.x + lastPoint[0], element.y + lastPoint[1]);
+                        context.rotate(angle);
+                        context.beginPath(); context.moveTo(0, 0); context.lineTo(-10, 5); context.lineTo(-10, -5); context.closePath();
+                        context.fillStyle = context.strokeStyle; context.fill(); context.restore();
+                    }
+                    break;
+                case 'text':
+                    context.fillStyle = element.strokeColor || '#000000';
+                    const fontSize = element.fontSize || 20;
+                    const lineHeight = fontSize * 1.2;
+                    context.font = `${fontSize}px 'Patrick Hand', cursive`;
+                    context.textAlign = 'left';
+                    context.textBaseline = 'top';
+                    const lines = (element.text || '').split('\n');
+                    lines.forEach((line, index) => {
+                        context.fillText(line, element.x, element.y + (index * lineHeight));
+                    });
+                    break;
+            }
+            context.restore();
+        }
+
+        function drawSelectionBox(box) {
+            if (!box) return;
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 100, 255, 0.1)';
+            ctx.fillRect(box.x, box.y, box.width, box.height);
+            ctx.strokeStyle = 'rgba(0, 100, 255, 0.6)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+            ctx.restore();
+        }
+
+        function redrawAllElements() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            elements.forEach(el => drawElement(ctx, el));
+            if (selectedElements.length > 0 && !isEditingText) {
+                const box = getBoundingBox(selectedElements);
+                drawResizeHandles(box);
+            }
+        }
+        
+        // --- UI & STATE MANAGEMENT ---
+        function updateToolbarState() {
+            undoBtn.disabled = history.length <= 1;
+            redoBtn.disabled = redoStack.length === 0;
+            // copyBtn, pasteBtn, etc. were removed
+        }
+
+        function updatePropertiesPanel() {
+            if (selectedElements.length > 0) {
+                propertiesPanel.classList.remove('hidden');
+                const firstElement = selectedElements[0];
+                strokeColorPicker.value = firstElement.strokeColor || '#000000';
+                if(firstElement.type !== 'pencil' && firstElement.type !== 'line' && firstElement.type !== 'arrow') {
+                    fillColorPicker.value = firstElement.backgroundColor === 'transparent' ? '#ffffff' : firstElement.backgroundColor;
+                    fillColorPicker.parentElement.classList.remove('hidden');
+                } else {
+                     fillColorPicker.parentElement.classList.add('hidden');
+                }
+            } else {
+                propertiesPanel.classList.add('hidden');
+            }
+            updateToolbarState();
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            ghostCanvas.width = canvas.width;
+            ghostCanvas.height = canvas.height;
+            redrawAllElements();
+        }
+
+        function setActiveTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tool === tool);
+            });
+        }
+        
+        const checkIntersection = (element, rect) => {
+            const elRect = { x: element.x, y: element.y, width: element.width, height: element.height };
+            return (elRect.x < rect.x + rect.width && elRect.x + elRect.width > rect.x && elRect.y < rect.y + rect.height && elRect.y + elRect.height > rect.y);
+        };
+        
+        // --- RESIZING LOGIC ---
+        const getBoundingBox = (els) => {
+            if (els.length === 0) return null;
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            els.forEach(el => {
+                minX = Math.min(minX, el.x);
+                minY = Math.min(minY, el.y);
+                maxX = Math.max(maxX, el.x + el.width);
+                maxY = Math.max(maxY, el.y + el.height);
+            });
+            return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+        };
+
+        const getResizeHandles = (box) => {
+            if (!box) return {};
+            const handleSize = 8;
+            return {
+                tl: { x: box.x - handleSize / 2, y: box.y - handleSize / 2, width: handleSize, height: handleSize, cursor: 'nwse-resize' },
+                tr: { x: box.x + box.width - handleSize / 2, y: box.y - handleSize / 2, width: handleSize, height: handleSize, cursor: 'nesw-resize' },
+                bl: { x: box.x - handleSize / 2, y: box.y + box.height - handleSize / 2, width: handleSize, height: handleSize, cursor: 'nesw-resize' },
+                br: { x: box.x + box.width - handleSize / 2, y: box.y + box.height - handleSize / 2, width: handleSize, height: handleSize, cursor: 'nwse-resize' }
+            };
+        };
+
+        const drawResizeHandles = (box) => {
+            const handles = getResizeHandles(box);
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 100, 255, 1)';
+            for (const key in handles) {
+                const handle = handles[key];
+                ctx.fillRect(handle.x, handle.y, handle.width, handle.height);
+            }
+            ctx.restore();
+        };
+
+        const getHandleAtPosition = (x, y) => {
+            if (selectedElements.length === 0) return null;
+            const box = getBoundingBox(selectedElements);
+            const handles = getResizeHandles(box);
+            for (const key in handles) {
+                const handle = handles[key];
+                if (x >= handle.x && x <= handle.x + handle.width && y >= handle.y && y <= handle.y + handle.height) {
+                    return key;
+                }
+            }
+            return null;
+        };
+
+
+        function handleTextCreation(x, y) {
+            if (isEditingText) return;
+            isEditingText = true;
+            
+            textEditor.style.left = `${x}px`;
+            textEditor.style.top = `${y}px`;
+            textEditor.style.display = 'block';
+            textEditor.value = '';
+            textEditor.style.width = '200px';
+            textEditor.style.height = '24px';
+            setTimeout(() => textEditor.focus(), 0);
+        }
+
+        // --- EVENT LISTENERS ---
+        canvas.addEventListener('mousedown', (e) => {
+            if (isEditingText) return;
+            const { x, y } = getMousePos(e);
+            startX = x; startY = y;
+            
+            resizeHandle = getHandleAtPosition(x, y);
+            if (resizeHandle) {
+                isResizing = true;
+                return;
+            }
+
+            if (currentTool === 'select') {
+                const clickedElement = elements.slice().reverse().find(el => (x >= el.x && x <= el.x + el.width && y >= el.y && y <= el.y + el.height));
+                const isClickOnSelection = selectedElements.some(el => el.id === clickedElement?.id);
+
+                if (isClickOnSelection) {
+                    isMoving = true;
+                } else if (clickedElement) {
+                    selectedElements = [clickedElement];
+                    isMoving = true;
+                } else {
+                    isSelecting = true;
+                    selectedElements = [];
+                    selectionBox = { x: startX, y: startY, width: 0, height: 0 };
+                }
+                updatePropertiesPanel();
+            } else if (currentTool === 'text') {
+                handleTextCreation(x, y);
+            } else {
+                isDrawing = true;
+                selectedElements = []; 
+                updatePropertiesPanel();
+                const strokeColor = currentTool === 'pencil' ? '#fd7e14' : '#000000';
+                currentElement = { 
+                    id: generateId(), 
+                    type: currentTool, 
+                    x: startX, 
+                    y: startY, 
+                    width: 0, 
+                    height: 0, 
+                    strokeColor: strokeColor, 
+                    backgroundColor: 'transparent', 
+                    fillStyle: 'hachure', 
+                    strokeWidth: 2, 
+                    points: currentTool === 'pencil' ? [[0, 0]] : []
+                };
+            }
+            
+            ghostCtx.clearRect(0, 0, ghostCanvas.width, ghostCanvas.height);
+            elements.forEach(el => { 
+                if (!selectedElements.some(sel => sel.id === el.id)) { drawElement(ghostCtx, el); }
+            });
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const { x, y } = getMousePos(e);
+            
+            if (!isDrawing && !isMoving && !isResizing && !isSelecting) {
+                const handle = getHandleAtPosition(x, y);
+                canvas.style.cursor = handle ? getResizeHandles(getBoundingBox(selectedElements))[handle].cursor : 'default';
+                return;
+            }
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(ghostCanvas, 0, 0);
+
+            if (isResizing) {
+                const originalBoundingBox = getBoundingBox(selectedElements);
+                const dx = x - startX;
+                const dy = y - startY;
+
+                let newBoundingBox = { ...originalBoundingBox };
+
+                if (resizeHandle.includes('l')) newBoundingBox.width -= dx;
+                if (resizeHandle.includes('r')) newBoundingBox.width += dx;
+                if (resizeHandle.includes('t')) newBoundingBox.height -= dy;
+                if (resizeHandle.includes('b')) newBoundingBox.height += dy;
+
+                if (resizeHandle.includes('l')) newBoundingBox.x += dx;
+                if (resizeHandle.includes('t')) newBoundingBox.y += dy;
+                
+                const scaleX = newBoundingBox.width / originalBoundingBox.width;
+                const scaleY = newBoundingBox.height / originalBoundingBox.height;
+
+                selectedElements.forEach(el => {
+                    const tempEl = { ...el };
+                    tempEl.x = newBoundingBox.x + (el.x - originalBoundingBox.x) * scaleX;
+                    tempEl.y = newBoundingBox.y + (el.y - originalBoundingBox.y) * scaleY;
+                    tempEl.width *= scaleX;
+                    tempEl.height *= scaleY;
+                    if(tempEl.type === 'pencil') {
+                        tempEl.points = tempEl.points.map(p => [p[0] * scaleX, p[1] * scaleY]);
+                    }
+                    drawElement(ctx, tempEl);
+                });
+            } else if (isSelecting && selectionBox) {
+                selectionBox.width = x - startX;
+                selectionBox.height = y - startY;
+                redrawAllElements();
+                drawSelectionBox(selectionBox);
+            } else if (isDrawing && currentElement) {
+                if (currentElement.type === 'pencil') {
+                    currentElement.points.push([x - startX, y - startY]);
+                } else {
+                    currentElement.width = x - startX;
+                    currentElement.height = y - startY;
+                     if (['line', 'arrow'].includes(currentElement.type)) {
+                        currentElement.points = [[0, 0], [x - startX, y - startY]];
+                    }
+                }
+                drawElement(ctx, currentElement);
+            } else if (isMoving && selectedElements.length > 0) {
+                const dx = x - startX; const dy = y - startY;
+                selectedElements.forEach(el => drawElement(ctx, { ...el, x: el.x + dx, y: el.y + dy }));
+            }
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            let changeMade = false;
+            
+            if (isDrawing && currentElement?.type === 'pencil') {
+                 const { minRelX, minRelY, maxRelX, maxRelY } = currentElement.points.reduce((acc, p) => ({
+                    minRelX: Math.min(acc.minRelX, p[0]),
+                    minRelY: Math.min(acc.minRelY, p[1]),
+                    maxRelX: Math.max(acc.maxRelX, p[0]),
+                    maxRelY: Math.max(acc.maxRelY, p[1]),
+                }), { minRelX: Infinity, minRelY: Infinity, maxRelX: -Infinity, maxRelY: -Infinity });
+
+                currentElement.x = startX + minRelX;
+                currentElement.y = startY + minRelY;
+                currentElement.width = maxRelX - minRelX;
+                currentElement.height = maxRelY - minRelY;
+                currentElement.points = currentElement.points.map(p => [p[0] - minRelX, p[1] - minRelY]);
+                
+                elements.push(currentElement);
+                selectedElements = [currentElement];
+                updatePropertiesPanel();
+                setActiveTool('select');
+                changeMade = true;
+
+            } else if (isResizing) {
+                const originalBoundingBox = getBoundingBox(selectedElements);
+                const { x, y } = getMousePos(e);
+                const dx = x - startX;
+                const dy = y - startY;
+
+                let newBoundingBox = { ...originalBoundingBox };
+
+                if (resizeHandle.includes('l')) newBoundingBox.width -= dx;
+                if (resizeHandle.includes('r')) newBoundingBox.width += dx;
+                if (resizeHandle.includes('t')) newBoundingBox.height -= dy;
+                if (resizeHandle.includes('b')) newBoundingBox.height += dy;
+                if (resizeHandle.includes('l')) newBoundingBox.x += dx;
+                if (resizeHandle.includes('t')) newBoundingBox.y += dy;
+
+                if (newBoundingBox.width < 0) { newBoundingBox.x += newBoundingBox.width; newBoundingBox.width *= -1; }
+                if (newBoundingBox.height < 0) { newBoundingBox.y += newBoundingBox.height; newBoundingBox.height *= -1; }
+
+                const scaleX = newBoundingBox.width / originalBoundingBox.width;
+                const scaleY = newBoundingBox.height / originalBoundingBox.height;
+
+                selectedElements.forEach(el => {
+                    el.x = newBoundingBox.x + (el.x - originalBoundingBox.x) * scaleX;
+                    el.y = newBoundingBox.y + (el.y - originalBoundingBox.y) * scaleY;
+                    el.width *= scaleX;
+                    el.height *= scaleY;
+                    if(el.type === 'pencil') {
+                       el.points = el.points.map(p => [p[0] * scaleX, p[1] * scaleY]);
+                    }
+                });
+                changeMade = true;
+
+            } else if (isSelecting) {
+                const normalizedBox = { x: selectionBox.width < 0 ? startX + selectionBox.width : startX, y: selectionBox.height < 0 ? startY + selectionBox.height : startY, width: Math.abs(selectionBox.width), height: Math.abs(selectionBox.height) };
+                selectedElements = elements.filter(el => checkIntersection(el, normalizedBox));
+                updatePropertiesPanel();
+            } else if (isDrawing && currentElement) {
+                if (currentElement.width < 0) { currentElement.x += currentElement.width; currentElement.width = Math.abs(currentElement.width); }
+                if (currentElement.height < 0) { currentElement.y += currentElement.height; currentElement.height = Math.abs(currentElement.height); }
+                if (currentElement.width > 1 || currentElement.height > 1) {
+                    if (['line', 'arrow'].includes(currentElement.type)) {
+                       currentElement.points = [[0,0], [currentElement.width, currentElement.height]];
+                    }
+                    elements.push(currentElement);
+                    selectedElements = [currentElement];
+                    updatePropertiesPanel();
+                    setActiveTool('select');
+                    changeMade = true;
+                }
+            } else if (isMoving && selectedElements.length > 0) {
+                const { x, y } = getMousePos(e);
+                const dx = x - startX; const dy = y - startY;
+                if (Math.abs(dx) > 0 || Math.abs(dy) > 0) {
+                    selectedElements.forEach(el => { el.x += dx; el.y += dy; });
+                    changeMade = true;
+                }
+            }
+            
+            isDrawing = false; isMoving = false; isResizing = false; isSelecting = false;
+            currentElement = null; selectionBox = null; resizeHandle = null;
+            redrawAllElements();
+
+            if (changeMade) {
+                saveState();
+            }
+        });
+        
+        const finalizeText = () => {
+            const text = textEditor.value.trim();
+            if (text) {
+                const x = parseInt(textEditor.style.left, 10);
+                const y = parseInt(textEditor.style.top, 10);
+                const fontSize = 20;
+                const lineHeight = fontSize * 1.2;
+                const lines = text.split('\n');
+                ctx.font = `${fontSize}px 'Patrick Hand', cursive`;
+                let maxWidth = 0;
+                lines.forEach(line => {
+                    const metrics = ctx.measureText(line);
+                    if (metrics.width > maxWidth) { maxWidth = metrics.width; }
+                });
+                
+                const newElement = { id: generateId(), type: 'text', text: text, x: x, y: y, width: maxWidth, height: lines.length * lineHeight, fontSize: fontSize, strokeColor: '#000000' };
+                elements.push(newElement);
+                selectedElements = [newElement];
+                setActiveTool('select');
+                saveState();
+            }
+            textEditor.style.display = 'none';
+            isEditingText = false;
+            redrawAllElements();
+            updatePropertiesPanel();
+        };
+
+        textEditor.addEventListener('input', () => { textEditor.style.height = 'auto'; textEditor.style.height = `${textEditor.scrollHeight}px`; });
+        textEditor.addEventListener('blur', finalizeText);
+        textEditor.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); finalizeText(); } 
+            else if (e.key === 'Escape') { textEditor.value = ''; finalizeText(); }
+        });
+
+        document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => btn.addEventListener('click', () => setActiveTool(btn.dataset.tool)));
+
+        document.getElementById('clear-canvas').addEventListener('click', () => {
+            if (confirm('¿Estás seguro de que quieres limpiar el lienzo?')) {
+                elements = [];
+                selectedElements = [];
+                history = []; // Reset history completely
+                redoStack = [];
+                saveState(); // Save the new empty state to start history
+                updatePropertiesPanel();
+                redrawAllElements();
+            }
+        });
+
+        document.getElementById('export-btn').addEventListener('click', () => {
+            selectedElements = [];
+            redrawAllElements(); 
+            const link = document.createElement('a');
+            link.download = 'mi-dibujo.png'; link.href = canvas.toDataURL('image/png'); link.click();
+        });
+        
+        undoBtn.addEventListener('click', undo);
+        redoBtn.addEventListener('click', redo);
+
+        strokeColorPicker.addEventListener('change', (e) => {
+            if (selectedElements.length > 0) {
+                selectedElements.forEach(el => el.strokeColor = e.target.value);
+                redrawAllElements();
+                saveState();
+            }
+        });
+
+        fillColorPicker.addEventListener('change', (e) => {
+            if (selectedElements.length > 0) {
+                selectedElements.forEach(el => { el.backgroundColor = e.target.value; el.fillStyle = 'solid'; });
+                redrawAllElements();
+                saveState();
+            }
+        });
+        
+        document.addEventListener('keydown', (e) => {
+            if (isEditingText) return;
+            if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); } 
+            else if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); } 
+            else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElements.length > 0) { e.preventDefault(); deleteSelectedElements(); }
+        });
+
+        // --- LIBRARY LOGIC ---
+        function parseLibrary() {
+            try {
+                const data = JSON.parse(document.getElementById('library-data').textContent);
+                libraryIcons = data.library.map(iconElements => {
+                    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                    iconElements.forEach(el => {
+                        minX = Math.min(minX, el.x); minY = Math.min(minY, el.y);
+                        maxX = Math.max(maxX, el.x + (el.width || 0)); maxY = Math.max(maxY, el.y + (el.height || 0));
+                    });
+                    const normalizedElements = iconElements.map(el => ({ ...el, x: el.x - minX, y: el.y - minY }));
+                    return { elements: normalizedElements, width: maxX - minX, height: maxY - minY };
+                });
+            } catch (error) { console.error("Error parsing library data:", error); }
+        }
+        
+        function renderLibrary() {
+            const container = document.getElementById('library-content'); container.innerHTML = '';
+            libraryIcons.forEach((icon, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'border rounded-lg p-2 hover:bg-gray-100 cursor-pointer aspect-square flex items-center justify-center';
+                const previewCanvas = document.createElement('canvas');
+                const pCtx = previewCanvas.getContext('2d');
+                const scale = Math.min(80 / icon.width, 80 / icon.height);
+                previewCanvas.width = icon.width * scale; previewCanvas.height = icon.height * scale;
+                pCtx.scale(scale, scale);
+                icon.elements.forEach(el => drawElement(pCtx, el));
+                wrapper.appendChild(previewCanvas); container.appendChild(wrapper);
+                wrapper.addEventListener('click', () => placeIcon(index));
+            });
+        }
+        
+        function placeIcon(index) {
+            const icon = libraryIcons[index]; if (!icon) return;
+            const newElements = icon.elements.map(el => ({ ...JSON.parse(JSON.stringify(el)), id: generateId(), x: el.x + (canvas.width / 2) - (icon.width / 2), y: el.y + (canvas.height / 2) - (icon.height / 2) }));
+            elements.push(...newElements); redrawAllElements();
+            document.getElementById('library-panel').classList.add('hidden');
+            saveState();
+        }
+
+        libraryToggleBtn.addEventListener('click', () => { libraryPanel.classList.toggle('hidden'); });
+
+        // --- INITIALIZATION ---
+        window.addEventListener('load', () => { 
+            resizeCanvas(); 
+            parseLibrary(); 
+            renderLibrary(); 
+            saveState(); // Save the initial empty state
+            updateToolbarState();
+        });
+        window.addEventListener('resize', resizeCanvas);
+
+        window.addEventListener('mousedown', (e) => {
+            if (!libraryPanel.classList.contains('hidden') && !libraryPanel.contains(e.target) && !libraryToggleBtn.contains(e.target)) {
+                 libraryPanel.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
+
