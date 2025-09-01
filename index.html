@@ -1,35 +1,29 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editor de Dibujo</title>
     <link rel="icon" href="favicon.ico" type="image/vnd.microsoft.icon" />
+    <!-- Tailwind CSS & DaisyUI -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.2/dist/full.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Box Icons -->
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
     <style>
         body {
-            overflow: hidden;
             font-family: 'Inter', sans-serif;
-        }
-        canvas {
-            display: block;
-            background-color: #f8fafc; /* slate-50 */
+            overflow: hidden;
         }
         .tool-btn {
-            @apply w-12 h-12 flex items-center justify-center rounded-lg cursor-pointer transition-colors duration-200;
+            @apply btn btn-ghost btn-square;
         }
         .tool-btn.active {
-            @apply bg-blue-100 text-blue-600;
-        }
-        .tool-btn:hover:not(:disabled) {
-            @apply bg-gray-200;
-        }
-        .tool-btn:disabled {
-            @apply opacity-60 cursor-not-allowed grayscale;
-        }
-        #library-panel {
-            scrollbar-width: thin;
-            scrollbar-color: #a0aec0 #e2e8f0;
+            @apply btn-active;
         }
         #text-editor {
             position: absolute;
@@ -44,64 +38,70 @@
             padding: 0;
             margin: 0;
             overflow: hidden; /* Hide scrollbars */
+            color: hsl(var(--bc));
         }
     </style>
-    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
 </head>
-<body class="bg-gray-100">
+<body class="bg-base-200">
 
     <div id="main-container" class="relative w-screen h-screen flex">
+        <!-- Top Options Bar -->
+        <div class="absolute top-4 right-4 z-20 p-2 bg-base-100 rounded-lg shadow-lg flex items-center gap-4">
+             <div class="flex items-center gap-2">
+                <i class='bx bxs-sun text-xl text-warning'></i>
+                <input type="checkbox" id="theme-toggle" class="toggle toggle-sm" />
+                <i class='bx bxs-moon text-xl text-info'></i>
+            </div>
+        </div>
+
         <!-- Toolbar -->
-        <div id="toolbar" class="absolute top-4 left-4 z-10 bg-white p-2 rounded-lg shadow-lg flex flex-col items-center space-y-2">
+        <div id="toolbar" class="absolute top-4 left-4 z-10 bg-base-100 p-2 rounded-lg shadow-lg flex flex-col items-center space-y-2">
             <button class="tool-btn active" data-tool="select" title="Seleccionar y Mover">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path></svg>
+                <i class='bx bxs-pointer text-2xl'></i>
             </button>
             <button class="tool-btn" data-tool="rectangle" title="Rectángulo">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                <i class='bx bx-rectangle text-2xl'></i>
             </button>
             <button class="tool-btn" data-tool="ellipse" title="Elipse">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
+                <i class='bx bx-radio-circle text-2xl'></i>
             </button>
             <button class="tool-btn" data-tool="line" title="Línea">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <i class='bx bx-minus text-2xl'></i>
             </button>
              <button class="tool-btn" data-tool="arrow" title="Flecha">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                <i class='bx bx-right-arrow-alt text-2xl'></i>
             </button>
              <button class="tool-btn" data-tool="pencil" title="Dibujo a mano alzada">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                <i class='bx bxs-pencil text-2xl'></i>
             </button>
             <button class="tool-btn" data-tool="text" title="Texto">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+                <i class='bx bx-text text-2xl'></i>
             </button>
             <button id="library-toggle" class="tool-btn" title="Biblioteca de iconos">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                <i class='bx bxs-book-content text-2xl'></i>
             </button>
             
-            <div class="border-t w-full my-2"></div>
+            <div class="divider m-0"></div>
 
             <button id="undo-btn" class="tool-btn" title="Deshacer (Ctrl+Z)">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l-3 2.7"/></svg>
+                <i class='bx bx-undo text-2xl'></i>
             </button>
             <button id="redo-btn" class="tool-btn" title="Rehacer (Ctrl+Y)">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3l3 2.7"/></svg>
+                <i class='bx bx-redo text-2xl'></i>
             </button>
 
-            <div class="border-t w-full my-2"></div>
+            <div class="divider m-0"></div>
             
              <button id="export-btn" class="tool-btn" title="Exportar a PNG">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <i class='bx bx-export text-2xl'></i>
             </button>
              <button id="clear-canvas" class="tool-btn" title="Eliminar todo">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                <i class='bx bx-trash text-2xl'></i>
             </button>
         </div>
 
         <!-- Library Panel -->
-        <div id="library-panel" class="absolute top-4 left-20 z-10 bg-white p-4 rounded-lg shadow-lg w-64 h-[calc(100vh-2rem)] overflow-y-auto hidden">
+        <div id="library-panel" class="absolute top-4 left-20 z-10 bg-base-100 p-4 rounded-lg shadow-lg w-64 h-[calc(100vh-2rem)] overflow-y-auto hidden">
             <h3 class="text-lg font-bold mb-4">Biblioteca</h3>
             <div id="library-content" class="grid grid-cols-2 gap-2">
                 <!-- Library items will be injected here -->
@@ -109,22 +109,22 @@
         </div>
         
         <!-- Properties Panel -->
-        <div id="properties-panel" class="absolute top-4 right-4 z-10 bg-white p-3 rounded-lg shadow-lg w-56 hidden">
+        <div id="properties-panel" class="absolute top-4 right-4 z-10 bg-base-100 p-3 rounded-lg shadow-lg w-56 hidden mt-16">
             <h3 class="text-sm font-bold mb-2">Propiedades</h3>
             <div class="space-y-2">
                 <div>
-                    <label for="stroke-color" class="text-xs text-gray-600 block mb-1">Color de trazo</label>
+                    <label for="stroke-color" class="text-xs text-base-content block mb-1">Color de trazo</label>
                     <input type="color" id="stroke-color" class="w-full h-8 p-0 border-none rounded-md cursor-pointer">
                 </div>
                 <div>
-                    <label for="fill-color" class="text-xs text-gray-600 block mb-1">Color de relleno</label>
+                    <label for="fill-color" class="text-xs text-base-content block mb-1">Color de relleno</label>
                     <input type="color" id="fill-color" class="w-full h-8 p-0 border-none rounded-md cursor-pointer">
                 </div>
             </div>
         </div>
 
         <!-- Main drawing area -->
-        <canvas id="canvas" class="w-full h-full"></canvas>
+        <canvas id="canvas" class="w-full h-full bg-base-100"></canvas>
         <!-- Text editor element, initially hidden -->
         <textarea id="text-editor"></textarea>
     </div>
@@ -132,7 +132,7 @@
     <!-- Embedded Library Data -->
     <script id="library-data" type="application/json">
     {
-      "type": "drawlib",
+      "type": "lib",
       "version": 1,
       "library": [
         [
@@ -180,6 +180,7 @@
         const textEditor = document.getElementById('text-editor');
         const undoBtn = document.getElementById('undo-btn');
         const redoBtn = document.getElementById('redo-btn');
+        const themeToggle = document.getElementById('theme-toggle');
         
         const ghostCanvas = document.createElement('canvas');
         const ghostCtx = ghostCanvas.getContext('2d');
@@ -342,7 +343,8 @@
 
         function redrawAllElements() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#f8fafc';
+            const bgColor = getComputedStyle(canvas).backgroundColor;
+            ctx.fillStyle = bgColor;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             elements.forEach(el => drawElement(ctx, el));
             if (selectedElements.length > 0 && !isEditingText) {
@@ -490,7 +492,14 @@
                 isDrawing = true;
                 selectedElements = []; 
                 updatePropertiesPanel();
-                const strokeColor = currentTool === 'pencil' ? '#fd7e14' : '#000000';
+                let strokeColor;
+                if (currentTool === 'pencil') {
+                    strokeColor = '#fd7e14';
+                } else {
+                    const currentTheme = document.documentElement.getAttribute('data-theme');
+                    strokeColor = currentTheme === 'dark' ? '#FFFFFF' : '#000000';
+                }
+
                 currentElement = { 
                     id: generateId(), 
                     type: currentTool, 
@@ -680,7 +689,10 @@
                     if (metrics.width > maxWidth) { maxWidth = metrics.width; }
                 });
                 
-                const newElement = { id: generateId(), type: 'text', text: text, x: x, y: y, width: maxWidth, height: lines.length * lineHeight, fontSize: fontSize, strokeColor: '#000000' };
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                const strokeColor = currentTheme === 'dark' ? '#FFFFFF' : '#000000';
+                
+                const newElement = { id: generateId(), type: 'text', text: text, x: x, y: y, width: maxWidth, height: lines.length * lineHeight, fontSize: fontSize, strokeColor: strokeColor };
                 elements.push(newElement);
                 selectedElements = [newElement];
                 setActiveTool('select');
@@ -788,8 +800,28 @@
 
         libraryToggleBtn.addEventListener('click', () => { libraryPanel.classList.toggle('hidden'); });
 
+        // --- THEME LOGIC ---
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            if (theme === 'dark') {
+                themeToggle.checked = true;
+            } else {
+                themeToggle.checked = false;
+            }
+             setTimeout(redrawAllElements, 50); // Redraw canvas with new theme background
+        }
+
+        themeToggle.addEventListener('change', () => {
+            const theme = themeToggle.checked ? 'dark' : 'light';
+            localStorage.setItem('drawing-theme', theme);
+            applyTheme(theme);
+        });
+
         // --- INITIALIZATION ---
         window.addEventListener('load', () => { 
+            const savedTheme = localStorage.getItem('drawing-theme') || 'light';
+            applyTheme(savedTheme);
+
             resizeCanvas(); 
             parseLibrary(); 
             renderLibrary(); 
